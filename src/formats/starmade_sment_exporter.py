@@ -53,12 +53,14 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
         color_scope[(bid, shape)] = color_scope.get((bid, shape), 0) + 1
 
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr('header.smbph', _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification))
-        zf.writestr('meta.smbpm', _build_meta())
-        zf.writestr('logic.smbpl', _build_logic(core_x, core_y, core_z))
+        bp_dir = f'{blueprint_name}'
+        zf.writestr(f'{bp_dir}/header.smbph', _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification))
+        zf.writestr(f'{bp_dir}/meta.smbpm', _build_meta())
+        zf.writestr(f'{bp_dir}/logic.smbpl', _build_logic(core_x, core_y, core_z))
         
+        data_dir = f'{bp_dir}/DATA'
         smd3_data = _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax)
-        zf.writestr(f'DATA/{blueprint_name}.0.0.0.smd3', smd3_data)
+        zf.writestr(f'{data_dir}/{blueprint_name}.0.0.0.smd3', smd3_data)
 
 
 def _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification):
