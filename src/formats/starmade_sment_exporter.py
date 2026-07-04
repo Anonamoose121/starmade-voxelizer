@@ -45,10 +45,13 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
 
     element_counts = {}
     color_scope = {}
-    for voxel in model.voxels.values():
+    for (gx, gy, gz), voxel in model.voxels.items():
         color = voxel.get('color', 1)
         shape = voxel.get('shape', 0)
-        bid, _ = _resolve_block(color, shape)
+        if gx == model.core_x and gy == model.core_y and gz == model.core_z:
+            bid = 1
+        else:
+            bid, _ = _resolve_block(color, shape)
         element_counts[bid] = element_counts.get(bid, 0) + 1
         color_scope[(bid, shape)] = color_scope.get((bid, shape), 0) + 1
 
@@ -77,10 +80,13 @@ def export_starmade_dir(model, output_dir, blueprint_name, entity_type=0, classi
     core_z = model.core_z - zmin
 
     element_counts = {}
-    for voxel in model.voxels.values():
+    for (gx, gy, gz), voxel in model.voxels.items():
         color = voxel.get('color', 1)
         shape = voxel.get('shape', 0)
-        bid, _ = _resolve_block(color, shape)
+        if gx == model.core_x and gy == model.core_y and gz == model.core_z:
+            bid = 1
+        else:
+            bid, _ = _resolve_block(color, shape)
         element_counts[bid] = element_counts.get(bid, 0) + 1
 
     with open(os.path.join(bp_dir, 'header.smbph'), 'wb') as f:
