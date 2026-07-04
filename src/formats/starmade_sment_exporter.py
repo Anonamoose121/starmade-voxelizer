@@ -124,17 +124,8 @@ def _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_typ
 
 def _build_meta():
     buf = BytesIO()
-    
-    version = 0
-    buf.write(struct.pack('>I', version))
-    
-    buf.write(struct.pack('>B', 2))
-    
-    seg_manager_tag = _build_seg_manager_tag()
-    buf.write(seg_manager_tag)
-    
+    buf.write(struct.pack('>i', 0))
     buf.write(struct.pack('>B', 1))
-    
     return buf.getvalue()
 
 
@@ -205,7 +196,13 @@ def _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax):
         linear_index = local_z * 32 * 32 + local_y * 32 + local_x
         color = info.get('color', 1)
         shape = info.get('shape', 0)
-        bid, orientation = _resolve_block(color, shape)
+        
+        is_core = (gx == model.core_x and gy == model.core_y and gz == model.core_z)
+        if is_core:
+            bid = 1
+            orientation = 0
+        else:
+            bid, orientation = _resolve_block(color, shape)
         is_active = 0
         hitpoints = 255
         
