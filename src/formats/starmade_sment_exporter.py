@@ -45,17 +45,19 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
 
     element_counts = {}
     color_scope = {}
+    has_core_voxel = False
     for (gx, gy, gz), voxel in model.voxels.items():
         color = voxel.get('color', 1)
         shape = voxel.get('shape', 0)
         if gx == model.core_x and gy == model.core_y and gz == model.core_z:
             bid = 1
+            has_core_voxel = True
         else:
             bid, _ = _resolve_block(color, shape)
         element_counts[bid] = element_counts.get(bid, 0) + 1
         color_scope[(bid, shape)] = color_scope.get((bid, shape), 0) + 1
 
-    if xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
+    if not has_core_voxel and xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
         element_counts[1] = element_counts.get(1, 0) + 1
 
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -83,16 +85,18 @@ def export_starmade_dir(model, output_dir, blueprint_name, entity_type=0, classi
     core_z = model.core_z
 
     element_counts = {}
+    has_core_voxel = False
     for (gx, gy, gz), voxel in model.voxels.items():
         color = voxel.get('color', 1)
         shape = voxel.get('shape', 0)
         if gx == model.core_x and gy == model.core_y and gz == model.core_z:
             bid = 1
+            has_core_voxel = True
         else:
             bid, _ = _resolve_block(color, shape)
         element_counts[bid] = element_counts.get(bid, 0) + 1
 
-    if xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
+    if not has_core_voxel and xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
         element_counts[1] = element_counts.get(1, 0) + 1
 
     with open(os.path.join(bp_dir, 'header.smbph'), 'wb') as f:
@@ -209,12 +213,7 @@ def _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax):
         color = info.get('color', 1)
         shape = info.get('shape', 0)
         
-        is_core = (gx == model.core_x and gy == model.core_y and gz == model.core_z)
-        if is_core:
-            bid = 1
-            orientation = 0
-        else:
-            bid, orientation = _resolve_block(color, shape)
+        bid, orientation = _resolve_block(color, shape)
         is_active = 0
         hitpoints = 255
         
@@ -225,44 +224,38 @@ def _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax):
             'hitpoints': hitpoints,
         }
     
-    if xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
-        cx = model.core_x - xmin
-        cy = model.core_y - ymin
-        cz = model.core_z - zmin
-        sx = cx // 32
-        sy = cy // 32
-        sz = cz // 32
-        seg_key = (sx, sy, sz)
-        if seg_key not in segments:
-            segments[seg_key] = {}
-        local_x = cx % 32
-        local_y = cy % 32
-        local_z = cz % 32
-        linear_index = local_z * 32 * 32 + local_y * 32 + local_x
-        segments[seg_key][linear_index] = {
-            'blockId': 1,
-            'orientation': 0,
-            'isActive': 0,
-            'hitpoints': 255,
-        }
+    cx = model.core_x - xmin
+    cy = model.core_y - ymin
+    cz = model.core_z - zmin
+    core_sx = cx // 32
+    core_sy = cy // 32
+    core_sz = cz // 32
+    core_local_x = cx % 32
+    core_local_y = cy % 32
+    core_local_z = cz % 32
+    core_linear_index = core_local_z * 32 * 32 + core_local_y * 32 + core_local_x
     
-    min_sx = min(k[0] for k in segments.keys())
-    max_sx = max(k[0] for k in segments.keys())
-    min_sy = min(k[1] for k in segments.keys())
-    max_sy = max(k[1] for k in segments.keys())
-    min_sz = min(k[2] for k in segments.keys())
-    max_sz = max(k[2] for k in segments.keys())
+    core_seg_key = (core_sx, core_sy, core_sz)
+    if core_seg_key not in segments:
+        segments[core_seg_key] = {}
+    segments[core_seg_key][core_linear_index] = {
+        'blockId': 1,
+        'orientation': 0,
+        'isActive': 0,
+        'hitpoints': 255,
+    }
     
     header = BytesIO()
-    header.write(struct.pack('>i', 0))
+    header.write(struct.pack('>i', 6))
     
     indices = {key: i for i, key in enumerate(sorted(segments.keys()))}
+    default_sid = next(iter(indices.values())) if indices else 0
     
     for sz in range(0, 16):
         for sy in range(0, 16):
             for sx in range(0, 16):
                 seg_key = (sx, sy, sz)
-                sid = indices.get(seg_key, -1)
+                sid = indices.get(seg_key, default_sid)
                 header.write(struct.pack('>h', sid))
                 header.write(struct.pack('>h', 0))
     
@@ -284,9 +277,9 @@ def _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax):
         compressed = zlib.compress(bytes(block_array), 9)
         
         seg_buf = BytesIO()
-        seg_buf.write(struct.pack('>B', 1))
+        seg_buf.write(struct.pack('>B', 6))
         seg_buf.write(struct.pack('>q', 0))
-        seg_buf.write(struct.pack('>iii', sx * 32 + xmin, sy * 32 + ymin, sz * 32 + zmin))
+        seg_buf.write(struct.pack('>iii', sx * 32, sy * 32, sz * 32))
         seg_buf.write(struct.pack('>B', 1))
         seg_buf.write(struct.pack('>i', len(compressed)))
         seg_buf.write(compressed)
