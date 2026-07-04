@@ -1,3 +1,4 @@
+import os
 import struct
 import zipfile
 import zlib
@@ -26,9 +27,12 @@ def _resolve_block(color, shape):
     return color, 0
 
 
-def export_starmade_sment(model, output_path, entity_type=0, classification=0, blueprint_name="Ship"):
+def export_starmade_sment(model, output_path, entity_type=0, classification=0, blueprint_name=None):
     if not isinstance(model, VoxelModel) or not model.voxels:
         raise ValueError("Model is empty or invalid")
+
+    if blueprint_name is None:
+        blueprint_name = os.path.splitext(os.path.basename(output_path))[0] or "Ship"
 
     xmin, xmax, ymin, ymax, zmin, zmax = model.get_bounds()
     width = xmax - xmin + 1
@@ -53,17 +57,18 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
         zf.writestr('meta.smbpm', _build_meta())
         zf.writestr('logic.smbpl', _build_logic(core_x, core_y, core_z))
         
-        data_dir = 'DATA'
         smd3_data = _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax)
-        zf.writestr(f'{data_dir}/{blueprint_name}.0.0.0.smd3', smd3_data)
+        zf.writestr(f'DATA/{blueprint_name}.0.0.0.smd3', smd3_data)
 
 
 def _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification):
     buf = BytesIO()
     
-    version = 0
+    version = 5
+    buf.write(struct.pack('>i', version))
+    
     version_str = b'0.0.0'
-    buf.write(struct.pack('>i', len(version_str)))
+    buf.write(struct.pack('>h', len(version_str)))
     buf.write(version_str)
     buf.write(struct.pack('>i', entity_type))
     buf.write(struct.pack('>i', classification))
@@ -73,6 +78,8 @@ def _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_typ
     for bid, count in element_counts.items():
         buf.write(struct.pack('>h', bid))
         buf.write(struct.pack('>i', count))
+    
+    buf.write(struct.pack('>B', 0))
     
     return buf.getvalue()
 
