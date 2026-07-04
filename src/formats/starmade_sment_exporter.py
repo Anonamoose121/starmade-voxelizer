@@ -39,9 +39,9 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
     height = ymax - ymin + 1
     depth = zmax - zmin + 1
 
-    core_x = model.core_x - xmin
-    core_y = model.core_y - ymin
-    core_z = model.core_z - zmin
+    core_x = model.core_x
+    core_y = model.core_y
+    core_z = model.core_z
 
     element_counts = {}
     color_scope = {}
@@ -54,6 +54,9 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
             bid, _ = _resolve_block(color, shape)
         element_counts[bid] = element_counts.get(bid, 0) + 1
         color_scope[(bid, shape)] = color_scope.get((bid, shape), 0) + 1
+
+    if xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
+        element_counts[1] = element_counts.get(1, 0) + 1
 
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         bp_dir = f'{blueprint_name}'
@@ -75,9 +78,9 @@ def export_starmade_dir(model, output_dir, blueprint_name, entity_type=0, classi
     os.makedirs(data_dir, exist_ok=True)
 
     xmin, xmax, ymin, ymax, zmin, zmax = model.get_bounds()
-    core_x = model.core_x - xmin
-    core_y = model.core_y - ymin
-    core_z = model.core_z - zmin
+    core_x = model.core_x
+    core_y = model.core_y
+    core_z = model.core_z
 
     element_counts = {}
     for (gx, gy, gz), voxel in model.voxels.items():
@@ -88,6 +91,9 @@ def export_starmade_dir(model, output_dir, blueprint_name, entity_type=0, classi
         else:
             bid, _ = _resolve_block(color, shape)
         element_counts[bid] = element_counts.get(bid, 0) + 1
+
+    if xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
+        element_counts[1] = element_counts.get(1, 0) + 1
 
     with open(os.path.join(bp_dir, 'header.smbph'), 'wb') as f:
         f.write(_build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification))
@@ -217,6 +223,27 @@ def _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax):
             'orientation': orientation,
             'isActive': is_active,
             'hitpoints': hitpoints,
+        }
+    
+    if xmin <= model.core_x <= xmax and ymin <= model.core_y <= ymax and zmin <= model.core_z <= zmax:
+        cx = model.core_x - xmin
+        cy = model.core_y - ymin
+        cz = model.core_z - zmin
+        sx = cx // 32
+        sy = cy // 32
+        sz = cz // 32
+        seg_key = (sx, sy, sz)
+        if seg_key not in segments:
+            segments[seg_key] = {}
+        local_x = cx % 32
+        local_y = cy % 32
+        local_z = cz % 32
+        linear_index = local_z * 32 * 32 + local_y * 32 + local_x
+        segments[seg_key][linear_index] = {
+            'blockId': 1,
+            'orientation': 0,
+            'isActive': 0,
+            'hitpoints': 255,
         }
     
     min_sx = min(k[0] for k in segments.keys())
