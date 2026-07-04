@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpinBox, QFileDialog, QGroupBox,
-    QCheckBox, QMessageBox, QScrollArea, QSplitter, QComboBox
+    QCheckBox, QMessageBox, QScrollArea, QSplitter, QComboBox, QInputDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QCloseEvent
@@ -18,7 +18,7 @@ from src.formats.vxl_loader import load_vxl
 from src.formats.mesh_loader import load_vox_from_mesh, scan_mesh, progressive_scan_mesh, load_obj, load_ply, load_stl
 from src.formats.text_loader import load_csv, load_json
 from src.formats.starmade_exporter import export_starmade_obj
-from src.formats.starmade_sment_exporter import export_starmade_sment
+from src.formats.starmade_sment_exporter import export_starmade_sment, export_starmade_dir
 from src.gui.opengl_widget import VoxelGLWidget
 
 
@@ -496,6 +496,10 @@ class MainWindow(QMainWindow):
         self.export_sment_btn = QPushButton("Export StarMade Blueprint (.sment)")
         self.export_sment_btn.clicked.connect(self._export_sment)
         export_layout.addWidget(self.export_sment_btn)
+
+        self.export_dir_btn = QPushButton("Export to Blueprints Folder")
+        self.export_dir_btn.clicked.connect(self._export_to_blueprints_dir)
+        export_layout.addWidget(self.export_dir_btn)
 
         self.export_label = QLabel("")
         export_layout.addWidget(self.export_label)
@@ -1206,6 +1210,43 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "Success", f"StarMade blueprint exported to:\n{filename}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Export failed:\n{str(e)}")
+
+    def _export_to_blueprints_dir(self):
+        if self.model is None:
+            QMessageBox.warning(self, "Warning", "No model loaded to export!")
+            return
+
+        default_name = "MyShip"
+        if self.current_file:
+            base = os.path.splitext(os.path.basename(self.current_file))[0]
+            default_name = base
+
+        blueprint_name, ok = QInputDialog.getText(
+            self, "Blueprint Name", "Enter blueprint name:", text=default_name
+        )
+        if not ok or not blueprint_name.strip():
+            return
+
+        blueprint_name = blueprint_name.strip()
+        base_dir = os.path.join(os.environ.get('APPDATA', ''), 'starmade-launcher', 'blueprints')
+        output_dir = os.path.join(base_dir, blueprint_name)
+
+        if os.path.exists(output_dir):
+            reply = QMessageBox.question(
+                self, "Overwrite?",
+                f"Blueprint folder already exists:\n{output_dir}\nOverwrite?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+            export_starmade_dir(self.model, base_dir, blueprint_name)
+            self.export_label.setText(f"Exported to: {base_dir}")
+            QMessageBox.information(self, "Success", f"Blueprint exported to:\n{output_dir}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Export failed:\n{str(e)}")
 
     def closeEvent(self, event: QCloseEvent):
         event.accept()

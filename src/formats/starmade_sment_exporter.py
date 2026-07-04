@@ -63,6 +63,42 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
         zf.writestr(f'{data_dir}/{blueprint_name}.0.0.0.smd3', smd3_data)
 
 
+def export_starmade_dir(model, output_dir, blueprint_name, entity_type=0, classification=0):
+    if not isinstance(model, VoxelModel) or not model.voxels:
+        raise ValueError("Model is empty or invalid")
+
+    bp_dir = os.path.join(output_dir, blueprint_name)
+    data_dir = os.path.join(bp_dir, 'DATA')
+    os.makedirs(data_dir, exist_ok=True)
+
+    xmin, xmax, ymin, ymax, zmin, zmax = model.get_bounds()
+    core_x = model.core_x - xmin
+    core_y = model.core_y - ymin
+    core_z = model.core_z - zmin
+
+    element_counts = {}
+    for voxel in model.voxels.values():
+        color = voxel.get('color', 1)
+        shape = voxel.get('shape', 0)
+        bid, _ = _resolve_block(color, shape)
+        element_counts[bid] = element_counts.get(bid, 0) + 1
+
+    with open(os.path.join(bp_dir, 'header.smbph'), 'wb') as f:
+        f.write(_build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification))
+    with open(os.path.join(bp_dir, 'meta.smbpm'), 'wb') as f:
+        f.write(_build_meta())
+    with open(os.path.join(bp_dir, 'logic.smbpl'), 'wb') as f:
+        f.write(_build_logic(core_x, core_y, core_z))
+
+    smd3_data = _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax)
+    with open(os.path.join(data_dir, f'{blueprint_name}.0.0.0.smd3'), 'wb') as f:
+        f.write(smd3_data)
+
+    modmappings_path = os.path.join(bp_dir, 'modmappings.smbmm')
+    if not os.path.exists(modmappings_path):
+        open(modmappings_path, 'wb').close()
+
+
 def _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification):
     buf = BytesIO()
     
