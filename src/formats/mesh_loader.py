@@ -253,6 +253,7 @@ def load_vox_from_mesh(filename=None, vertices=None, faces=None, width=None, hei
 
     from src.block_shapes import optimize_blocks
     model = optimize_blocks(model)
+    model.cleanup()
 
     return model
 
@@ -501,6 +502,7 @@ def _fill_interior(model, width, height, depth):
     new_model = VoxelModel()
     for i in range(len(xs)):
         new_model.add_voxel(int(xs[i]), int(ys[i]), int(zs[i]))
+    new_model.cleanup()
     return new_model
 
 
@@ -540,6 +542,7 @@ def _hollow_model(model, thickness=1):
         z = gz + zmin
         new_model.add_voxel(x, y, z)
 
+    new_model.cleanup()
     return new_model
 
 
@@ -634,6 +637,7 @@ def progressive_scan_mesh(vertices, faces, target_resolution=64, width=None, hei
 
         from src.block_shapes import optimize_blocks
         pass_model = optimize_blocks(pass_model)
+        pass_model.cleanup()
 
         pass_name = f"Pass {pass_idx + 1}/{len(passes)} ({res} res)"
         yield pass_model, pass_idx, len(passes), pass_name

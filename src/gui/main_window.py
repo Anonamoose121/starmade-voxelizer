@@ -317,6 +317,10 @@ class MainWindow(QMainWindow):
         self.thickness_spin.setValue(1)
         hollow_layout.addWidget(self.thickness_spin)
 
+        self.cleanup_chk = QCheckBox("Cleanup")
+        self.cleanup_chk.setChecked(True)
+        hollow_layout.addWidget(self.cleanup_chk)
+
         file_layout.addLayout(dim_layout)
         file_layout.addLayout(hollow_layout)
 
@@ -327,6 +331,7 @@ class MainWindow(QMainWindow):
         self.use_dims_chk.toggled.connect(self._on_live_setting_changed)
         self.hollow_chk.toggled.connect(self._on_live_setting_changed)
         self.thickness_spin.valueChanged.connect(self._on_live_setting_changed)
+        self.cleanup_chk.toggled.connect(self._on_live_setting_changed)
 
         self.file_label = QLabel("No file loaded")
         self.file_label.setWordWrap(True)

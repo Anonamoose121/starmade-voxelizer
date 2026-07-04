@@ -30,6 +30,7 @@ def _resolve_block(color, shape):
 def export_starmade_sment(model, output_path, entity_type=0, classification=0, blueprint_name=None):
     if not isinstance(model, VoxelModel) or not model.voxels:
         raise ValueError("Model is empty or invalid")
+    model.cleanup()
 
     if blueprint_name is None:
         blueprint_name = os.path.splitext(os.path.basename(output_path))[0] or "Ship"
@@ -74,6 +75,7 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
 def export_starmade_dir(model, output_dir, blueprint_name, entity_type=0, classification=0):
     if not isinstance(model, VoxelModel) or not model.voxels:
         raise ValueError("Model is empty or invalid")
+    model.cleanup()
 
     bp_dir = os.path.join(output_dir, blueprint_name)
     data_dir = os.path.join(bp_dir, 'DATA')
