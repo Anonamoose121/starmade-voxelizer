@@ -64,7 +64,7 @@ def export_starmade_sment(model, output_path, entity_type=0, classification=0, b
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         bp_dir = f'{blueprint_name}'
         zf.writestr(f'{bp_dir}/header.smbph', _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification))
-        zf.writestr(f'{bp_dir}/meta.smbpm', _build_meta())
+        zf.writestr(f'{bp_dir}/meta.smbpm', _build_meta(blueprint_name))
         zf.writestr(f'{bp_dir}/logic.smbpl', _build_logic(core_x, core_y, core_z))
         
         data_dir = f'{bp_dir}/DATA'
@@ -104,7 +104,7 @@ def export_starmade_dir(model, output_dir, blueprint_name, entity_type=0, classi
     with open(os.path.join(bp_dir, 'header.smbph'), 'wb') as f:
         f.write(_build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_type, classification))
     with open(os.path.join(bp_dir, 'meta.smbpm'), 'wb') as f:
-        f.write(_build_meta())
+        f.write(_build_meta(blueprint_name))
     with open(os.path.join(bp_dir, 'logic.smbpl'), 'wb') as f:
         f.write(_build_logic(core_x, core_y, core_z))
 
@@ -140,7 +140,22 @@ def _build_header(xmin, ymin, zmin, xmax, ymax, zmax, element_counts, entity_typ
     return buf.getvalue()
 
 
-def _build_meta():
+def _build_meta(blueprint_name="Ship"):
+    appdata = os.environ.get('APPDATA', '')
+    candidates = [
+        os.path.join(appdata, 'starmade-launcher', 'blueprints', 'Isanth Type-PNR-25-B', 'meta.smbpm'),
+        os.path.join(os.path.dirname(__file__), '..', '..', 'tools', 'SMEditClassic', 'meta_template.smbpm'),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                meta = f.read()
+            old_name = b'Isanth Type-PNR-25-B'
+            new_name = blueprint_name.encode('utf-8')
+            if old_name in meta:
+                meta = meta.replace(old_name, new_name)
+            return meta
+    
     buf = BytesIO()
     buf.write(struct.pack('>i', 0))
     buf.write(struct.pack('>B', 1))
@@ -251,17 +266,9 @@ def _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax):
     header.write(struct.pack('>i', 6))
     
     indices = {key: i for i, key in enumerate(sorted(segments.keys()))}
-    default_sid = next(iter(indices.values())) if indices else 0
-    
-    for sz in range(0, 16):
-        for sy in range(0, 16):
-            for sx in range(0, 16):
-                seg_key = (sx, sy, sz)
-                sid = indices.get(seg_key, default_sid)
-                header.write(struct.pack('>h', sid))
-                header.write(struct.pack('>h', 0))
     
     segment_data_list = []
+    segment_sizes = {}
     for seg_key in sorted(segments.keys()):
         sx, sy, sz = seg_key
         
@@ -287,10 +294,20 @@ def _build_smd3_data(model, xmin, ymin, zmin, xmax, ymax, zmax):
         seg_buf.write(compressed)
         
         seg_data = seg_buf.getvalue()
+        segment_sizes[seg_key] = len(seg_data)
         padding = 49152 - len(seg_data)
         if padding > 0:
             seg_buf.write(b'\x00' * padding)
         
         segment_data_list.append(seg_buf.getvalue())
+    
+    for sz in range(0, 16):
+        for sy in range(0, 16):
+            for sx in range(0, 16):
+                seg_key = (sx, sy, sz)
+                sid = indices.get(seg_key, -1)
+                seg_size = segment_sizes.get(seg_key, 0) if sid != -1 else 0
+                header.write(struct.pack('>h', sid))
+                header.write(struct.pack('>H', seg_size))
     
     return header.getvalue() + b''.join(segment_data_list)
